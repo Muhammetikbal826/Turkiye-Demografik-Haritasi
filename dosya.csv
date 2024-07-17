@@ -1,0 +1,10 @@
+function convertToCSV(data) {
+    var csv = '';
+    // Başlık satırını ekle
+    csv += 'Şehir,Önceki Yıl Popülasyonu,Mevcut Yıl Popülasyonu,Hafif Suç Oranı,Orta Suç Oranı,Ciddi Suç Oranı,Erkek Dağılımı,Kadın Dağılımı,Açıklama\n';
+    // Her şehir verisini döngüyle CSV'ye ekle
+    data.forEach(function(city) {
+        csv += city.name + ',' + city.prevYearPopulation + ',' + city.currentYearPopulation + ',' + city.crimeRate.join(',') + ',' + city.genderDistribution.join(',') + ',' + city.description.replace(/,/g, '') + '\n';
+    });
+    return csv;
+}

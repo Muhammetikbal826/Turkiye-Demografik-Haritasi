@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Türkiye Haritası</title> <!-- Sayfa başlığı -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- Chart.js kütüphanesi yükleniyor -->
+    <style>
+        #map-container {
+            position: center; /* Harita konteynerinin pozisyonu */
+            width: 800px; /* Genişlik */
+            height: 500px; /* Yükseklik */
+            display: flex; /* Elemanların yatay olarak düzenlenmesi */
+            flex-wrap: wrap; /* Elemanların alt satıra geçmesi */
+            justify-content: space-between; /* Elemanlar arasında boşluk bırakma */
+            margin-top: 50px; /* Üst kısma boşluk */
+            margin-left: 300px; /* Sol taraftan boşluk */
+        }
+
+        #map { /* Harita stili */
+            width: 100%; /* Genişlik */
+            height: 100%; /* Yükseklik */
+        }
+
+        .city-marker { /* Şehir işaretçisi stil */
+            position: absolute; /* Mutlak pozisyonlandırma */
+            width: 10px; /* Genişlik */
+            height: 10px; /* Yükseklik */
+            border-radius: 50%; /* Yuvarlak kenar */
+            background-color: rgb(206, 86, 86); /* Arka plan rengi */
+            cursor: pointer; /* İşaretçi stilini değiştirme */
+        }
+
+        .selected { /* Seçili durum için stil */
+            border: 2px solid blue; /* Mavi kenarlık */
+        }
+
+        #city-info { /* Şehir bilgisi stil */
+            width: 300px; /* Genişlik */
+            margin-left: 20px; /* Sol taraftan boşluk */
+            display: none; /* Başlangıçta gizli */
+        }
+
+        #city-info h2 { /* Başlık stil */
+            font-size: 18px; /* Yazı boyutu */
+            margin-bottom: 10px; /* Alt kısma boşluk */
+        }
+
+        #city-info p {
+            margin-bottom: 5px; /* Alt kısma boşluk */
+        }
+
+        .chart { /* Grafiklerin stil */
+            width: 300px; /* Genişlik */
+            height: 200px; /* Yükseklik */
+            margin-top: 10px; /* Üst kısma boşluk */
+        }
+
+        #compare-button { /* Karşılaştırma butonu stil */
+            margin-top: 10px; /* Üst kısma boşluk */
+        }
+    </style>
+</head>
+<body>
+    <div id="map-container">
+        <img id="map" src="türkey.png" alt="Türkiye Haritası"> <!-- Türkiye haritası -->
+        <div id="city-markers"></div> <!-- Şehir işaretçileri -->
+    </div>
+
+    <div id="city-info"> <!-- Şehir bilgisi -->
+        <h2>Şehir Bilgileri</h2> <!-- Başlık -->
+        <p id="city-name"></p> <!-- Şehir adı -->
+        <div class="chart-container"> <!-- Grafiklerin bulunduğu konteyner -->
+            <div class="chart">
+                <canvas id="prevYearChart"></canvas> <!-- Önceki yıl grafiği -->
+            </div>
+            <div class="chart">
+                <canvas id="currentYearChart"></canvas> <!-- Mevcut yıl grafiği -->
+            </div>
+            <div class="chart">
+                <canvas id="crimeRateChart"></canvas> <!-- Suç oranı grafiği -->
+            </div>
+            <div class="chart">
+                <canvas id="genderDistributionChart"></canvas> <!-- Cinsiyet dağılımı grafiği -->
+            </div>
+        </div>
+        <p id="city-description"></p> <!-- Şehir açıklaması -->
+    </div>
+
+    <button id="compare-button" disabled>Şehirleri Karşılaştır</button> <!-- Karşılaştırma butonu -->
+    <button id="single-city-button">Tek Şehir Göster</button> <!-- Tek şehir gösterme butonu -->
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> <!-- jQuery kütüphanesi -->
+
+    <script>
+        // JavaScript kodu buraya gelecek
+        $(document).ready(function() {
+    var selectedCities = []; // Seçilen şehirlerin listesi
+    var prevYearChart, currentYearChart, crimeRateChart, genderDistributionChart; // Grafik nesneleri
+
+    // Şehir verileri
+    var cities = [
+        {
+            name: "İstanbul", // Şehir adı
+            prevYearPopulation: "15,000,000", // Önceki yıl nüfusu
+            currentYearPopulation: "15,907,000", // Mevcut yıl nüfusu
+            crimeRate: [20, 30, 50], // Suç oranı
+            genderDistribution: [48, 52], // Cinsiyet dağılımı
+            description: "İstanbul, Türkiye'nin en kalabalık şehri ve ekonomik merkezidir.", // Şehir hakkında açıklama
+            left: "445px", // Harita üzerinde sol konum
+            top: "129px" // Harita üzerinde üst konum
+        },
+        {
+            name: "Ankara", // Şehir adı
+            prevYearPopulation: "5,000,000", // Önceki yıl nüfusu
+            currentYearPopulation: "5,803,000", // Mevcut yıl nüfusu
+            crimeRate: [15, 25, 60], // Suç oranı
+            genderDistribution: [50, 50], // Cinsiyet dağılımı
+            description: "Ankara, Türkiye'nin başkenti ve ikinci en kalabalık şehridir.", // Şehir hakkında açıklama
+            left: "597px", // Harita üzerinde sol konum
+            top: "205px" // Harita üzerinde üst konum
+        },
+        {
+            name: "İzmir", // Şehir adı
+            prevYearPopulation: "4,000,000", // Önceki yıl nüfusu
+            currentYearPopulation: "4,479,000", // Mevcut yıl nüfusu
+            crimeRate: [10, 40, 50], // Suç oranı
+            genderDistribution: [47, 53], // Cinsiyet dağılımı
+            description: "İzmir, Türkiye'nin üçüncü en kalabalık şehri ve Ege Bölgesi'nin merkezidir.", // Şehir hakkında açıklama
+            left: "367px", // Harita üzerinde sol konum
+            top: "303px" // Harita üzerinde üst konum
+        }
+    ];
+
+    // Şehir işaretçilerini oluşturma
+    function createCityMarkers() {
+        var markersContainer = document.getElementById("city-markers");
+
+        cities.forEach(function(city) {
+            var marker = document.createElement("div");
+            marker.className = "city-marker";
+            marker.style.left = city.left; // Sol konumu ayarlama
+            marker.style.top = city.top; // Üst konumu ayarlama
+            marker.addEventListener("click", function() {
+                toggleCitySelection(city, marker); // Şehir seçimini açıp kapatma
+            });
+
+            markersContainer.appendChild(marker); // İşaretçiyi ekleme
+        });
+    }
+
+    // Şehir seçimini açıp kapatma
+    function toggleCitySelection(city, marker) {
+        if (selectedCities.includes(city)) {
+            selectedCities = selectedCities.filter(item => item !== city); // Şehiri listeden kaldırma
+            marker.classList.remove("selected"); // Seçimi iptal etme
+        } else {
+            selectedCities.push(city); // Şehiri listeye ekleme
+            marker.classList.add("selected"); // Seçimi işaretleme
+        }
+
+        // Karşılaştırma butonunu etkinleştirme veya devre dışı bırakma
+        if (selectedCities.length >= 2) {
+            $("#compare-button").prop("disabled", false); // Butonu etkinleştirme
+        } else {
+            $("#compare-button").prop("disabled", true); // Butonu devre dışı bırakma
+        }
+    }
+
+    // Şehir bilgilerini gösterme
+    function showCityInfo(city) {
+        var cityName = document.getElementById("city-name");
+        var prevYearChartCanvas = document.getElementById("prevYearChart");
+        var currentYearChartCanvas = document.getElementById("currentYearChart");
+        var crimeRateChartCanvas = document.getElementById("crimeRateChart");
+        var genderDistributionChartCanvas = document.getElementById("genderDistributionChart");
+        var cityDescription = document.getElementById("city-description");
+        cityName.textContent = city.name; // Şehir adını ayarlama
+        cityDescription.textContent = city.description; // Şehir açıklamasını ayarlama
+
+        // Grafik nesnelerini yok etme
+        if (prevYearChart) {
+            prevYearChart.destroy(); // Grafik nesnesini yok etme
+        }
+        if (currentYearChart) {
+            currentYearChart.destroy(); // Grafik nesnesini yok etme
+        }
+        if (crimeRateChart) {
+            crimeRateChart.destroy(); // Grafik nesnesini yok etme
+        }
+        if (genderDistributionChart) {
+            genderDistributionChart.destroy(); // Grafik nesnesini yok etme
+        }
+
+        // Chart.js kullanarak popülasyon grafiği oluşturma
+        var prevYearData = {
+            labels: ["2023"],
+            datasets: [
+                {
+                    label: "Nufüs",
+                    data: [parseInt(city.prevYearPopulation.replace(/,/g, ''))], // Veriyi ayarlama
+                    backgroundColor: "rgba(255, 99, 132, 0.2)", // Arka plan rengi
+                    borderColor: "rgba(255, 99, 132, 1)", // Kenarlık rengi
+                    borderWidth: 1 // Kenarlık kalınlığı
+                }
+            ]
+        };
+
+        var currentYearData = {
+            labels: ["2024"],
+            datasets: [
+                {
+                    label: "NUfüs",
+                    data: [parseInt(city.currentYearPopulation.replace(/,/g, ''))], // Veriyi ayarlama
+                    backgroundColor: "rgba(54, 162, 235, 0.2)", // Arka plan rengi
+                    borderColor: "rgba(54, 162, 235, 1)", // Kenarlık rengi
+                    borderWidth: 1 // Kenarlık kalınlığı
+                }
+            ]
+        };
+
+        var crimeRateData = {
+            labels: ["Hafif", "Orta", "Ciddi"],
+            datasets: [
+                {
+                    label: "Suç Oranı",
+                    data: city.crimeRate, // Veriyi ayarlama
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.5)',
+                        'rgba(54, 162, 235, 0.5)',
+                        'rgba(255, 206, 86, 0.5)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)'
+                    ],
+                    borderWidth: 1 // Kenarlık kalınlığı
+                }
+            ]
+        };
+
+        var genderDistributionData = {
+            labels: ["Erkek", "Kadın"],
+            datasets: [
+                {
+                    label: "Cinsiyet Dağılımı",
+                    data: city.genderDistribution, // Veriyi ayarlama
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.5)',
+                        'rgba(54, 162, 235, 0.5)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(54, 162, 235, 1)'
+                    ],
+                    borderWidth: 1 // Kenarlık kalınlığı
+                }
+            ]
+        };
+
+        var prevYearChartOptions = {
+            scales: {
+                y: {
+                    beginAtZero: true // Y eksenini sıfırdan başlatma
+                }
+            }
+        };
+
+        var currentYearChartOptions = {
+            scales: {
+                y: {
+                    beginAtZero: true // Y eksenini sıfırdan başlatma
+                }
+            }
+        };
+
+        var crimeRateChartOptions = {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top', // Efsane pozisyonunu ayarlama
+                },
+                title: {
+                    display: true,
+                    text: 'Suç Oranı' // Başlık metni
+                }
+            }
+        };
+
+        var genderDistributionChartOptions = {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top', // Efsane pozisyonunu ayarlama
+                },
+                title: {
+                    display: true,
+                    text: 'Cinsiyet Dağılımı' // Başlık metni
+                }
+            }
+        };
+
+        prevYearChart = new Chart(prevYearChartCanvas.getContext("2d"), {
+            type: 'bar',
+            data: prevYearData,
+            options: prevYearChartOptions // Grafik seçeneklerini ayarlama
+        });
+
+        currentYearChart = new Chart(currentYearChartCanvas.getContext("2d"), {
+            type: 'bar',
+            data: currentYearData,
+            options: currentYearChartOptions // Grafik seçeneklerini ayarlama
+        });
+
+        crimeRateChart = new Chart(crimeRateChartCanvas.getContext("2d"), {
+            type: 'pie',
+            data: crimeRateData,
+            options: crimeRateChartOptions // Grafik seçeneklerini ayarlama
+        });
+
+        genderDistributionChart = new Chart(genderDistributionChartCanvas.getContext("2d"), {
+            type: 'pie',
+            data: genderDistributionData,
+            options: genderDistributionChartOptions // Grafik seçeneklerini ayarlama
+        });
+
+        // Şehir bilgilerini gösterme
+        var cityInfo = document.getElementById("city-info");
+        cityInfo.style.display = "block"; // Bilgi kutusunu görünür hale getirme
+    }
+
+    // Şehirleri karşılaştırma
+    function showCityComparison(city1, city2) {
+        var prevYearChartCanvas = document.getElementById("prevYearChart");
+        var currentYearChartCanvas = document.getElementById("currentYearChart");
+        var crimeRateChartCanvas = document.getElementById("crimeRateChart");
+        var genderDistributionChartCanvas = document.getElementById("genderDistributionChart");
+
+        // Mevcut grafik nesnelerini yok etme
+        if (prevYearChart) {
+            prevYearChart.destroy(); // Grafik nesnesini yok etme
+        }
+        if (currentYearChart) {
+            currentYearChart.destroy(); // Grafik nesnesini yok etme
+        }
+        if (crimeRateChart) {
+            crimeRateChart.destroy(); // Grafik nesnesini yok etme
+        }
+        if (genderDistributionChart) {
+            genderDistributionChart.destroy(); // Grafik nesnesini yok etme
+        }
+
+        var prevYearData = {
+            labels: ["Önceki Yıl"],
+            datasets: [
+                {
+                    label: city1.name,
+                    data: [parseInt(city1.prevYearPopulation.replace(/,/g, ''))], // Veriyi ayarlama
+                    backgroundColor: "rgba(255, 99, 132, 0.2)", // Arka plan rengi
+                    borderColor: "rgba(255, 99, 132, 1)", // Kenarlık rengi
+                    borderWidth: 1 // Kenarlık kalınlığı
+                },
+                {
+                    label: city2.name,
+                    data: [parseInt(city2.prevYearPopulation.replace(/,/g, ''))], // Veriyi ayarlama
+                    backgroundColor: "rgba(54, 162, 235, 0.2)", // Arka plan rengi
+                    borderColor: "rgba(54, 162, 235, 1)", // Kenarlık rengi
+                    borderWidth: 1 // Kenarlık kalınlığı
+                }
+            ]
+        };
+
+        var currentYearData = {
+            labels: ["Mevcut Yıl"],
+            datasets: [
+                {
+                    label: city1.name,
+                    data: [parseInt(city1.currentYearPopulation.replace(/,/g, ''))], // Veriyi ayarlama
+                    backgroundColor: "rgba(255, 99, 132, 0.2)", // Arka plan rengi
+                    borderColor: "rgba(255, 99, 132, 1)", // Kenarlık rengi
+                    borderWidth: 1 // Kenarlık kalınlığı
+                },
+                {
+                    label: city2.name,
+                    data: [parseInt(city2.currentYearPopulation.replace(/,/g, ''))], // Veriyi ayarlama
+                    backgroundColor: "rgba(54, 162, 235, 0.2)", // Arka plan rengi
+                    borderColor: "rgba(54, 162, 235, 1)", // Kenarlık rengi
+                    borderWidth: 1 // Kenarlık kalınlığı
+                }
+            ]
+        };
+
+        var crimeRateData = {
+            labels: ["Hafif", "Orta", "Ciddi"],
+            datasets: [
+                {
+                    label: city1.name,
+                    data: city1.crimeRate, // Veriyi ayarlama
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.5)',
+                        'rgba(54, 162, 235, 0.5)',
+                        'rgba(255, 206, 86, 0.5)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)'
+                    ],
+                    borderWidth: 1 // Kenarlık kalınlığı
+                },
+                {
+                    label: city2.name,
+                    data: city2.crimeRate, // Veriyi ayarlama
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.5)',
+                        'rgba(54, 162, 235, 0.5)',
+                        'rgba(255, 206, 86, 0.5)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)'
+                    ],
+                    borderWidth: 1 // Kenarlık kalınlığı
+                }
+            ]
+        };
+
+        var genderDistributionData = {
+            labels: ["Erkek", "Kadın"],
+            datasets: [
+                {
+                    label: city1.name,
+                    data: city1.genderDistribution, // Veriyi ayarlama
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.5)',
+                        'rgba(54, 162, 235, 0.5)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(54, 162, 235, 1)'
+                    ],
+                    borderWidth: 1 // Kenarlık kalınlığı
+                },
+                {
+                    label: city2.name,
+                    data: city2.genderDistribution, // Veriyi ayarlama
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.5)',
+                        'rgba(54, 162, 235, 0.5)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(54, 162, 235, 1)'
+                    ],
+                    borderWidth: 1 // Kenarlık kalınlığı
+                }
+            ]
+        };
+
+        prevYearChart = new Chart(prevYearChartCanvas.getContext("2d"), {
+            type: 'bar',
+            data: prevYearData,
+            options: {} // Grafik seçeneklerini ayarlama
+        });
+
+        currentYearChart = new Chart(currentYearChartCanvas.getContext("2d"), {
+            type: 'bar',
+            data: currentYearData,
+            options: {} // Grafik seçeneklerini ayarlama
+        });
+
+        crimeRateChart = new Chart(crimeRateChartCanvas.getContext("2d"), {
+            type: 'pie',
+            data: crimeRateData,
+            options: {} // Grafik seçeneklerini ayarlama
+        });
+
+        genderDistributionChart = new Chart(genderDistributionChartCanvas.getContext("2d"), {
+            type: 'pie',
+            data: genderDistributionData,
+            options: {} // Grafik seçeneklerini ayarlama
+        });
+    }
+
+    // Karşılaştırma butonuna tıklandığında çalışacak işlev
+    $("#compare-button").click(function() {
+        if (selectedCities.length === 2) {
+            showCityComparison(selectedCities[0], selectedCities[1]); // Seçilen şehirleri karşılaştırma
+        }
+    });
+
+    // Şehir işaretçilerini oluşturma
+    createCityMarkers();
+
+    // Şehir seçildiğinde çalışacak işlev
+    function onCitySelect(city) {
+        return function() {
+            showCityInfo(city); // Şehir bilgilerini gösterme
+        };
+    }
+
+    // Her bir şehir için tıklanma olayını dinleme ve işlevi atama
+    cities.forEach(function(city) {
+        var marker = document.querySelector(".city-marker[style='left: " + city.left + "; top: " + city.top + ";']");
+        marker.addEventListener("click", onCitySelect(city));
+    });
+});
+
+    </script>
+</body>
+</html>

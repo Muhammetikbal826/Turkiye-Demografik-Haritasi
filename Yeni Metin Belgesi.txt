@@ -1,0 +1,4 @@
+Şehir,Önceki Yıl Nüfusu,Mevcut Yıl Nüfusu,Hafif Suç Oranı,Orta Suç Oranı,Ciddi Suç Oranı,Erkek Nüfus Yüzdesi,Kadın Nüfus Yüzdesi,Açıklama
+İstanbul,15000000,16000000,20,30,50,48,52,İstanbul, Türkiye'nin en kalabalık şehri ve ekonomik merkezidir.
+Ankara,5000000,5500000,15,25,60,50,50,Ankara, Türkiye'nin başkenti ve ikinci en kalabalık şehridir.
+İzmir,4000000,4500000,10,40,50,47,53,İzmir, Türkiye'nin üçüncü en kalabalık şehri ve Ege Bölgesi'nin merkezidir.
